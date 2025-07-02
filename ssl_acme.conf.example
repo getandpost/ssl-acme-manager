@@ -1,0 +1,271 @@
+# SSL ACME 配置文件示例
+# 复制此文件到 /etc/ssl_acme.conf 并根据需要修改
+
+# =============================================================================
+# 基本配置
+# =============================================================================
+
+# 默认ACME服务器
+# 可选值:
+# - https://acme.trustasia.com/v2/DV90/directory (CertCloud)
+# - https://acme-v02.api.letsencrypt.org/directory (Let's Encrypt)
+# - https://acme.zerossl.com/v2/DV90 (ZeroSSL)
+DEFAULT_SERVER="https://acme.trustasia.com/v2/DV90/directory"
+
+# 默认邮箱地址
+# 用于接收证书相关通知
+DEFAULT_EMAIL="admin@example.com"
+
+# 默认DNS服务商
+# 支持的值: dns_dp, dns_tencent, dns_ali, dns_aws, dns_cf
+DEFAULT_DNS_PROVIDER="dns_dp"
+
+# =============================================================================
+# 路径配置
+# =============================================================================
+
+# 证书存储基础路径
+CERT_BASE_PATH="/etc/ssl/certs"
+
+# 私钥存储基础路径
+KEY_BASE_PATH="/etc/ssl/private"
+
+# 备份目录
+BACKUP_DIR="/var/backups/ssl_certificates"
+
+# acme.sh 安装目录
+ACME_HOME="$HOME/.acme.sh"
+
+# =============================================================================
+# 日志配置
+# =============================================================================
+
+# 日志文件路径
+LOG_FILE="/var/log/ssl_acme.log"
+
+# 日志级别
+# 可选值: DEBUG, INFO, WARN, ERROR
+LOG_LEVEL="INFO"
+
+# 日志文件最大大小 (MB)
+LOG_MAX_SIZE=100
+
+# 保留的日志文件数量
+LOG_BACKUP_COUNT=5
+
+# =============================================================================
+# 自动续期配置
+# =============================================================================
+
+# 自动续期天数阈值
+# 证书剩余天数少于此值时会自动续期
+AUTO_RENEW_DAYS=30
+
+# 续期检查时间 (cron 格式)
+# 默认每天凌晨2点检查
+RENEW_CRON="0 2 * * *"
+
+# 续期失败重试次数
+RENEW_RETRY_COUNT=3
+
+# 续期失败重试间隔 (秒)
+RENEW_RETRY_INTERVAL=300
+
+# =============================================================================
+# 通知配置
+# =============================================================================
+
+# 启用邮件通知
+ENABLE_EMAIL_NOTIFICATION=true
+
+# 邮件通知地址
+NOTIFICATION_EMAIL="admin@example.com"
+
+# 启用钉钉通知
+ENABLE_DINGTALK_NOTIFICATION=false
+
+# 钉钉机器人 Webhook URL
+DINGTALK_WEBHOOK=""
+
+# 启用企业微信通知
+ENABLE_WECHAT_NOTIFICATION=false
+
+# 企业微信机器人 Webhook URL
+WECHAT_WEBHOOK=""
+
+# =============================================================================
+# DNS 服务商配置
+# =============================================================================
+
+# DNSPod 配置
+DNSPOD_ID=""
+DNSPOD_KEY=""
+
+# 腾讯云配置
+TENCENT_SECRET_ID=""
+TENCENT_SECRET_KEY=""
+
+# 阿里云配置
+ALIYUN_ACCESS_KEY_ID=""
+ALIYUN_ACCESS_KEY_SECRET=""
+
+# AWS 配置
+AWS_ACCESS_KEY_ID=""
+AWS_SECRET_ACCESS_KEY=""
+AWS_REGION="us-east-1"
+
+# Cloudflare 配置
+CLOUDFLARE_EMAIL=""
+CLOUDFLARE_API_KEY=""
+
+# =============================================================================
+# Web 服务器配置
+# =============================================================================
+
+# Nginx 配置
+NGINX_CONF_DIR="/etc/nginx"
+NGINX_SITES_AVAILABLE="/etc/nginx/sites-available"
+NGINX_SITES_ENABLED="/etc/nginx/sites-enabled"
+NGINX_SSL_DIR="/etc/nginx/ssl"
+NGINX_RELOAD_CMD="nginx -s reload"
+
+# Apache 配置
+APACHE_CONF_DIR="/etc/apache2"
+APACHE_SITES_AVAILABLE="/etc/apache2/sites-available"
+APACHE_SITES_ENABLED="/etc/apache2/sites-enabled"
+APACHE_SSL_DIR="/etc/apache2/ssl"
+APACHE_RELOAD_CMD="systemctl reload apache2"
+
+# =============================================================================
+# 安全配置
+# =============================================================================
+
+# 证书文件权限
+CERT_FILE_PERMISSION=644
+
+# 私钥文件权限
+KEY_FILE_PERMISSION=600
+
+# 证书目录权限
+CERT_DIR_PERMISSION=755
+
+# 私钥目录权限
+KEY_DIR_PERMISSION=700
+
+# 证书文件所有者
+CERT_OWNER="root:root"
+
+# 私钥文件所有者
+KEY_OWNER="root:root"
+
+# =============================================================================
+# 高级配置
+# =============================================================================
+
+# 证书密钥长度
+# 可选值: 2048, 3072, 4096, ec-256, ec-384
+KEY_LENGTH=2048
+
+# 证书有效期检查间隔 (天)
+VALIDITY_CHECK_INTERVAL=1
+
+# 并发处理域名数量
+CONCURRENT_DOMAINS=5
+
+# DNS 传播等待时间 (秒)
+DNS_SLEEP=20
+
+# HTTP 验证端口
+HTTP_PORT=80
+
+# HTTPS 验证端口
+HTTPS_PORT=443
+
+# 启用 OCSP Stapling
+ENABLE_OCSP_STAPLING=true
+
+# 启用 HSTS
+ENABLE_HSTS=true
+
+# HSTS 最大年龄 (秒)
+HSTS_MAX_AGE=31536000
+
+# =============================================================================
+# 备份配置
+# =============================================================================
+
+# 自动备份间隔 (天)
+BACKUP_INTERVAL=7
+
+# 保留备份文件数量
+BACKUP_RETENTION=30
+
+# 备份压缩级别 (1-9)
+BACKUP_COMPRESSION_LEVEL=6
+
+# 备份文件命名格式
+BACKUP_NAME_FORMAT="ssl_backup_%Y%m%d_%H%M%S.tar.gz"
+
+# =============================================================================
+# 监控配置
+# =============================================================================
+
+# 启用证书监控
+ENABLE_MONITORING=true
+
+# 监控检查间隔 (小时)
+MONITORING_INTERVAL=24
+
+# 证书到期预警天数
+EXPIRY_WARNING_DAYS=30
+
+# 证书到期紧急预警天数
+EXPIRY_CRITICAL_DAYS=7
+
+# =============================================================================
+# 调试配置
+# =============================================================================
+
+# 启用调试模式
+DEBUG_MODE=false
+
+# 调试日志文件
+DEBUG_LOG_FILE="/var/log/ssl_acme_debug.log"
+
+# 保留临时文件 (调试用)
+KEEP_TEMP_FILES=false
+
+# 详细输出模式
+VERBOSE_MODE=false
+
+# =============================================================================
+# 自定义钩子脚本
+# =============================================================================
+
+# 证书申请前执行的脚本
+PRE_ISSUE_HOOK=""
+
+# 证书申请后执行的脚本
+POST_ISSUE_HOOK=""
+
+# 证书安装前执行的脚本
+PRE_INSTALL_HOOK=""
+
+# 证书安装后执行的脚本
+POST_INSTALL_HOOK=""
+
+# 证书续期前执行的脚本
+PRE_RENEW_HOOK=""
+
+# 证书续期后执行的脚本
+POST_RENEW_HOOK=""
+
+# =============================================================================
+# 环境变量导出
+# =============================================================================
+
+# 自动导出环境变量
+AUTO_EXPORT_ENV=true
+
+# 环境变量文件路径
+ENV_FILE="/etc/ssl_acme.env"
