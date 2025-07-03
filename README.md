@@ -1,11 +1,15 @@
 # SSL ACME 自动化证书管理脚本
 
-这是一个基于 acme.sh 的免费 SSL 证书自动生成和维护脚本，支持多种 DNS 服务商和 Web 服务器的自动化证书管理。
+这是一个基于 acme.sh 和 CertCloud 的免费 SSL 证书自动生成和维护脚本，支持多种 DNS 服务商和 Web 服务器的自动化证书管理。
+
+> **基于 CertCloud 文档开发**
+> 本项目基于 [CertCloud ACME 文档](https://docs.certcloud.cn/docs/installation/auto/acme/acmesh/) 开发，提供完整的 SSL 证书管理解决方案。
 
 ## 功能特性
 
 - 🎯 **配置向导** - 交互式配置向导，快速完成初始设置
 - 🚀 **一键安装** - 自动安装和配置 acme.sh
+- 🏢 **CertCloud 集成** - 默认使用 CertCloud ACME 服务器，支持 EAB 认证
 - 🔐 **多种验证方式** - 支持 DNS 验证和文件验证
 - 🌐 **多DNS服务商** - 支持腾讯云、阿里云、DNSPod、AWS Route53、Cloudflare 等
 - 🔄 **自动续期** - 自动检测和续期即将过期的证书
@@ -15,16 +19,50 @@
 - 💾 **备份恢复** - 支持证书备份和恢复功能
 - 🖥️ **Web服务器集成** - 自动配置 Nginx 和 Apache
 - 📢 **通知系统** - 支持邮件和钉钉通知
+- 🔧 **完整工具链** - 单个脚本包含所有功能，无需额外安装脚本
 
 ## 系统要求
 
-- Linux 或 macOS 系统
+- Linux (Ubuntu, CentOS, Debian, RHEL, Fedora)
+- macOS
+- FreeBSD
+- Windows (Git Bash/WSL，功能受限)
 - Bash 4.0+
 - curl 或 wget
 - git
 - openssl (可选，用于证书信息查看)
 
+
+## 项目文件结构
+
+```
+ssl-acme-manager/
+├── ssl_acme.sh              # 主脚本 - 包含所有 SSL 证书管理功能
+├── setup_config.sh          # 配置向导 - 交互式配置生成器
+├── ssl_acme.conf.example    # 配置文件模板
+├── examples.sh              # 使用示例脚本
+├── README.md                # 项目文档
+└── LICENSE                  # 许可证文件
+```
+
+### 核心文件说明
+
+- **ssl_acme.sh** - 主要脚本，包含完整的 SSL 证书管理功能：
+  - acme.sh 安装和配置
+  - CertCloud ACME 账户注册
+  - 证书申请、安装、续期
+  - 证书状态监控和管理
+  - Web 服务器配置生成
+  - 证书备份和恢复
+
+- **setup_config.sh** - 配置向导，帮助快速生成配置文件
+
+- **examples.sh** - 使用示例，包含各种使用场景的命令示例
+
 ## 快速开始
+
+> **一个脚本搞定所有事情！**
+> `ssl_acme.sh` 包含了完整的 SSL 证书管理功能，从 acme.sh 安装到证书管理，一个脚本全搞定！
 
 ### 方式一：使用配置向导（推荐）
 
@@ -38,6 +76,18 @@ chmod +x ssl_acme.sh setup_config.sh
 
 # 3. 运行配置向导
 ./setup_config.sh
+
+# 4. 一键安装 acme.sh（使用配置向导生成的配置）
+./ssl_acme.sh install
+
+# 5. 注册 CertCloud 账户
+./ssl_acme.sh register
+
+# 6. 申请证书
+./ssl_acme.sh issue -d example.com
+
+# 7. 安装证书到 Nginx
+./ssl_acme.sh install-cert -d example.com -t nginx
 ```
 
 配置向导将引导您完成以下设置：
@@ -146,8 +196,21 @@ DNSPOD_KEY="your_dnspod_key"
 # 手动测试自动续期
 ./ssl_acme.sh auto-renew
 
-# 添加到 crontab（配置向导会提示具体命令）
+# 添加到 crontab，每天凌晨2点检查并自动续期即将过期的证书
 echo "0 2 * * * /path/to/ssl_acme.sh auto-renew" | sudo crontab -
+```
+
+#### 6. 批量管理多个域名
+
+```bash
+# 申请多个域名的证书
+domains=("example1.com" "example2.com" "example3.com")
+
+for domain in "${domains[@]}"; do
+    echo "处理域名: $domain"
+    ./ssl_acme.sh issue -d "$domain" -p dns_dp
+    ./ssl_acme.sh install-cert -d "$domain" -t nginx
+done
 ```
 
 ## 详细使用说明
@@ -243,91 +306,6 @@ export Ali_Secret="your_access_key_secret"
 ```bash
 export AWS_ACCESS_KEY_ID="your_access_key_id"
 export AWS_SECRET_ACCESS_KEY="your_secret_access_key"
-```
-
-## 使用示例
-
-### 完整的证书申请和部署流程
-
-#### 方法一：使用配置文件（推荐）
-
-```bash
-# 1. 创建配置文件
-sudo cp ssl_acme.conf.example /etc/ssl_acme.conf
-
-# 2. 编辑配置文件，设置默认值和API密钥
-sudo nano /etc/ssl_acme.conf
-# 设置：
-# DEFAULT_EMAIL="admin@example.com"
-# DEFAULT_DNS_PROVIDER="dns_dp"
-# DNSPOD_ID="your_dnspod_id"
-# DNSPOD_KEY="your_dnspod_key"
-
-# 3. 安装 acme.sh（使用配置文件中的默认邮箱）
-./ssl_acme.sh install
-
-# 4. 注册账户
-./ssl_acme.sh register
-
-# 5. 申请证书（使用配置文件中的默认DNS服务商）
-./ssl_acme.sh issue -d example.com -d www.example.com
-
-# 6. 安装证书到 Nginx
-./ssl_acme.sh install-cert -d example.com -t nginx
-
-# 7. 生成 Nginx 配置
-./ssl_acme.sh nginx-config -d example.com > /etc/nginx/sites-available/example.com
-
-# 8. 启用站点
-ln -s /etc/nginx/sites-available/example.com /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-```
-
-#### 方法二：使用命令行参数
-
-```bash
-# 1. 设置环境变量
-export DP_Id="your_dnspod_id"
-export DP_Key="your_dnspod_key"
-
-# 2. 安装 acme.sh
-./ssl_acme.sh install -e admin@example.com
-
-# 3. 注册账户
-./ssl_acme.sh register -e admin@example.com
-
-# 4. 申请证书
-./ssl_acme.sh issue -d example.com -d www.example.com -p dns_dp
-
-# 5. 安装证书到 Nginx
-./ssl_acme.sh install-cert -d example.com -t nginx
-
-# 6. 生成 Nginx 配置
-./ssl_acme.sh nginx-config -d example.com > /etc/nginx/sites-available/example.com
-
-# 7. 启用站点
-ln -s /etc/nginx/sites-available/example.com /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-```
-
-### 批量管理多个域名
-
-```bash
-# 申请多个域名的证书
-domains=("example1.com" "example2.com" "example3.com")
-
-for domain in "${domains[@]}"; do
-    echo "处理域名: $domain"
-    ./ssl_acme.sh issue -d "$domain" -p dns_dp
-    ./ssl_acme.sh install-cert -d "$domain" -t nginx
-done
-```
-
-### 设置自动续期
-
-```bash
-# 添加到 crontab，每天检查并自动续期即将过期的证书
-echo "0 2 * * * /path/to/ssl_acme.sh auto-renew --days 30" | crontab -
 ```
 
 ## 故障排除

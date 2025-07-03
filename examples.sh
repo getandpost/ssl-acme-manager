@@ -31,11 +31,18 @@ example_install() {
     echo
 }
 
-# 示例2: 注册 ACME 账户
+# 示例2: 注册 CertCloud ACME 账户
 example_register() {
-    echo -e "${GREEN}示例2: 注册 ACME 账户${NC}"
+    echo -e "${GREEN}示例2: 注册 CertCloud ACME 账户${NC}"
+    echo "前置条件: 获取 CertCloud EAB 密钥"
+    echo "1. 访问 CertCloud 控制台 -> 自动化 -> ACME -> 设置"
+    echo "2. 获取 EAB-KID 和 EAB-HMAC-KEY"
+    echo
     echo "命令: $SCRIPT_PATH register -e admin@example.com"
-    echo "说明: 注册 ACME 账户，用于申请证书"
+    echo "说明: 注册 CertCloud ACME 账户，用于申请证书"
+    echo
+    echo "注意: 脚本会自动使用 CertCloud 服务器："
+    echo "      https://acme.trustasia.com/v2/DV90/directory"
     echo
 }
 
@@ -90,20 +97,40 @@ example_wildcard() {
     echo -e "${GREEN}示例7: 申请通配符证书${NC}"
     echo "注意: 通配符证书只能使用 DNS 验证"
     echo
-    echo "命令: $SCRIPT_PATH issue -d \"*.example.com\" -d example.com -p dns_dp"
+    echo "命令: $SCRIPT_PATH issue -d example.com -d \"*.example.com\" -p dns_dp"
     echo "说明: 申请 *.example.com 和 example.com 的通配符证书"
+    echo
+    echo "多个通配符域名:"
+    echo "$SCRIPT_PATH issue -d \"*.example.com\" -d example.com -d \"*.api.example.com\" -p dns_dp"
     echo
 }
 
-# 示例8: 安装证书到 Nginx
+# 示例8: 申请多域名证书
+example_multi_domain() {
+    echo -e "${GREEN}示例8: 申请多域名证书${NC}"
+    echo "说明: 一个证书包含多个域名"
+    echo
+    echo "基本多域名证书:"
+    echo "$SCRIPT_PATH issue -d example.com -d www.example.com -d api.example.com -p dns_dp"
+    echo
+    echo "混合域名和通配符:"
+    echo "$SCRIPT_PATH issue -d example.com -d \"*.example.com\" -d api.example.com -p dns_dp"
+    echo
+    echo "多个不同域名:"
+    echo "$SCRIPT_PATH issue -d example.com -d another.com -d third.com -p dns_dp"
+    echo
+}
+
+# 示例9: 安装证书到 Nginx
 example_nginx() {
     echo -e "${GREEN}示例8: 安装证书到 Nginx${NC}"
     echo "命令: $SCRIPT_PATH install-cert -d example.com -t nginx"
     echo "说明: 自动安装证书到 Nginx 默认路径并重载配置"
+    echo "注意: 多域名证书时，使用第一个域名作为主域名"
     echo
     echo "自定义路径:"
     echo "$SCRIPT_PATH install-cert -d example.com \\"
-    echo "  --cert-path /etc/nginx/ssl/example.com.cer \\"
+    echo "  --cert-path /etc/nginx/ssl/example.com.crt \\"
     echo "  --key-path /etc/nginx/ssl/example.com.key \\"
     echo "  --reload-cmd \"nginx -s reload\""
     echo
@@ -114,6 +141,7 @@ example_apache() {
     echo -e "${GREEN}示例9: 安装证书到 Apache${NC}"
     echo "命令: $SCRIPT_PATH install-cert -d example.com -t apache"
     echo "说明: 自动安装证书到 Apache 默认路径并重载配置"
+    echo "注意: 多域名证书时，使用第一个域名作为主域名"
     echo
 }
 
@@ -122,6 +150,7 @@ example_nginx_config() {
     echo -e "${GREEN}示例10: 生成 Nginx 配置${NC}"
     echo "命令: $SCRIPT_PATH nginx-config -d example.com"
     echo "说明: 生成 Nginx SSL 配置示例"
+    echo "注意: 多域名证书时，使用第一个域名作为主域名"
     echo
     echo "保存到文件:"
     echo "$SCRIPT_PATH nginx-config -d example.com > /etc/nginx/sites-available/example.com"
@@ -230,9 +259,26 @@ example_cron() {
     echo
 }
 
-# 示例21: 配置文件使用
+# 示例21: 使用配置向导（推荐）
+example_config_wizard() {
+    echo -e "${GREEN}示例21: 使用配置向导（推荐）${NC}"
+    echo "命令: ./setup_config.sh"
+    echo "说明: 运行交互式配置向导，快速完成所有配置"
+    echo
+    echo "配置向导将帮助您设置："
+    echo "- 📧 邮箱地址"
+    echo "- 🌐 ACME 服务器（CertCloud、Let's Encrypt、ZeroSSL）"
+    echo "- 🔧 DNS 服务商（DNSPod、腾讯云、阿里云、AWS、Cloudflare）"
+    echo "- 📁 证书存储路径"
+    echo "- 🖥️  Web 服务器配置（Nginx、Apache）"
+    echo "- 📢 通知配置（邮件、钉钉）"
+    echo "- 🔄 自动续期设置"
+    echo
+}
+
+# 示例22: 手动配置文件使用
 example_config_file() {
-    echo -e "${GREEN}示例21: 配置文件使用${NC}"
+    echo -e "${GREEN}示例22: 手动配置文件使用${NC}"
     echo "1. 复制配置文件:"
     echo "   sudo cp ssl_acme.conf.example /etc/ssl_acme.conf"
     echo
@@ -255,7 +301,33 @@ example_config_file() {
 example_complete_workflow() {
     echo -e "${GREEN}完整的部署流程示例${NC}"
     echo
-    echo -e "${BLUE}方法一：使用配置文件（推荐）${NC}"
+    echo -e "${BLUE}方法一：使用配置向导（推荐）${NC}"
+    echo "1. 运行配置向导:"
+    echo "   ./setup_config.sh"
+    echo "   # 按提示完成所有配置（邮箱、DNS服务商、Web服务器等）"
+    echo
+    echo "2. 安装 acme.sh:"
+    echo "   $SCRIPT_PATH install"
+    echo
+    echo "3. 注册 CertCloud 账户:"
+    echo "   $SCRIPT_PATH register"
+    echo
+    echo "4. 申请证书:"
+    echo "   $SCRIPT_PATH issue -d example.com -d www.example.com"
+    echo
+    echo "5. 安装证书到 Nginx:"
+    echo "   $SCRIPT_PATH install-cert -d example.com -t nginx"
+    echo
+    echo "6. 生成 Nginx 配置:"
+    echo "   $SCRIPT_PATH nginx-config -d example.com > /etc/nginx/sites-available/example.com"
+    echo
+    echo "7. 启用站点:"
+    echo "   ln -s /etc/nginx/sites-available/example.com /etc/nginx/sites-enabled/"
+    echo "   nginx -t && systemctl reload nginx"
+    echo
+    echo "8. 自动续期已在配置向导中设置完成！"
+    echo
+    echo -e "${BLUE}方法二：手动配置文件${NC}"
     echo "1. 创建配置文件:"
     echo "   sudo cp ssl_acme.conf.example /etc/ssl_acme.conf"
     echo
@@ -263,29 +335,9 @@ example_complete_workflow() {
     echo "   sudo nano /etc/ssl_acme.conf"
     echo "   # 设置 DEFAULT_EMAIL、DEFAULT_DNS_PROVIDER、DNSPOD_ID、DNSPOD_KEY"
     echo
-    echo "3. 安装 acme.sh (使用配置文件默认邮箱):"
-    echo "   $SCRIPT_PATH install"
+    echo "3-8. 其余步骤同方法一"
     echo
-    echo "4. 注册账户:"
-    echo "   $SCRIPT_PATH register"
-    echo
-    echo "5. 申请证书 (使用配置文件默认DNS服务商):"
-    echo "   $SCRIPT_PATH issue -d example.com -d www.example.com"
-    echo
-    echo "6. 安装证书到 Nginx:"
-    echo "   $SCRIPT_PATH install-cert -d example.com -t nginx"
-    echo
-    echo "7. 生成 Nginx 配置:"
-    echo "   $SCRIPT_PATH nginx-config -d example.com > /etc/nginx/sites-available/example.com"
-    echo
-    echo "8. 启用站点:"
-    echo "   ln -s /etc/nginx/sites-available/example.com /etc/nginx/sites-enabled/"
-    echo "   nginx -t && systemctl reload nginx"
-    echo
-    echo "9. 设置自动续期:"
-    echo "   echo \"0 2 * * * $SCRIPT_PATH auto-renew --days 30\" | crontab -"
-    echo
-    echo -e "${BLUE}方法二：使用命令行参数${NC}"
+    echo -e "${BLUE}方法三：使用命令行参数${NC}"
     echo "1. 设置环境变量:"
     echo "   export DP_Id=\"your_dnspod_id\""
     echo "   export DP_Key=\"your_dnspod_key\""
@@ -299,7 +351,10 @@ example_complete_workflow() {
     echo "4. 申请证书:"
     echo "   $SCRIPT_PATH issue -d example.com -d www.example.com -p dns_dp"
     echo
-    echo "5-8. 其余步骤同方法一"
+    echo "5-7. 其余步骤同方法一"
+    echo
+    echo "8. 设置自动续期:"
+    echo "   echo \"0 2 * * * $SCRIPT_PATH auto-renew --days 30\" | crontab -"
     echo
 }
 
@@ -329,31 +384,33 @@ show_menu() {
     echo "请选择要查看的示例:"
     echo
     echo " 1) 安装 acme.sh"
-    echo " 2) 注册 ACME 账户"
+    echo " 2) 注册 CertCloud ACME 账户"
     echo " 3) DNSPod 申请证书"
     echo " 4) 腾讯云申请证书"
     echo " 5) 阿里云申请证书"
     echo " 6) 文件验证申请证书"
     echo " 7) 申请通配符证书"
-    echo " 8) 安装证书到 Nginx"
-    echo " 9) 安装证书到 Apache"
-    echo "10) 生成 Nginx 配置"
-    echo "11) 列出所有证书"
-    echo "12) 查看证书状态"
-    echo "13) 手动续期证书"
-    echo "14) 检查证书到期时间"
-    echo "15) 自动续期证书"
-    echo "16) 备份证书"
-    echo "17) 恢复证书"
-    echo "18) 删除证书"
-    echo "19) 批量申请证书"
-    echo "20) 设置定时任务"
-    echo "21) 配置文件使用"
-    echo "22) 完整部署流程"
-    echo "23) 故障排除"
+    echo " 8) 申请多域名证书"
+    echo " 9) 安装证书到 Nginx"
+    echo "10) 安装证书到 Apache"
+    echo "11) 生成 Nginx 配置"
+    echo "12) 列出所有证书"
+    echo "13) 查看证书状态"
+    echo "14) 手动续期证书"
+    echo "15) 检查证书到期时间"
+    echo "16) 自动续期证书"
+    echo "17) 备份证书"
+    echo "18) 恢复证书"
+    echo "19) 删除证书"
+    echo "20) 批量申请证书"
+    echo "21) 设置定时任务"
+    echo "22) 使用配置向导（推荐）"
+    echo "23) 手动配置文件使用"
+    echo "24) 完整部署流程"
+    echo "25) 故障排除"
     echo " 0) 显示所有示例"
     echo
-    read -p "请输入选项 (0-23): " choice
+    read -p "请输入选项 (0-25): " choice
     
     case $choice in
         1) example_install ;;
@@ -363,22 +420,24 @@ show_menu() {
         5) example_aliyun ;;
         6) example_webroot ;;
         7) example_wildcard ;;
-        8) example_nginx ;;
-        9) example_apache ;;
-        10) example_nginx_config ;;
-        11) example_list ;;
-        12) example_status ;;
-        13) example_renew ;;
-        14) example_check_expiry ;;
-        15) example_auto_renew ;;
-        16) example_backup ;;
-        17) example_restore ;;
-        18) example_remove ;;
-        19) example_batch ;;
-        20) example_cron ;;
-        21) example_config_file ;;
-        22) example_complete_workflow ;;
-        23) example_troubleshooting ;;
+        8) example_multi_domain ;;
+        9) example_nginx ;;
+        10) example_apache ;;
+        11) example_nginx_config ;;
+        12) example_list ;;
+        13) example_status ;;
+        14) example_renew ;;
+        15) example_check_expiry ;;
+        16) example_auto_renew ;;
+        17) example_backup ;;
+        18) example_restore ;;
+        19) example_remove ;;
+        20) example_batch ;;
+        21) example_cron ;;
+        22) example_config_wizard ;;
+        23) example_config_file ;;
+        24) example_complete_workflow ;;
+        25) example_troubleshooting ;;
         0) show_all_examples ;;
         *) echo -e "${RED}无效选项${NC}" ;;
     esac
@@ -393,6 +452,7 @@ show_all_examples() {
     example_aliyun
     example_webroot
     example_wildcard
+    example_multi_domain
     example_nginx
     example_apache
     example_nginx_config
@@ -406,6 +466,7 @@ show_all_examples() {
     example_remove
     example_batch
     example_cron
+    example_config_wizard
     example_config_file
     example_complete_workflow
     example_troubleshooting

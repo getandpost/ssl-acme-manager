@@ -56,7 +56,7 @@ ${SCRIPT_NAME} v${SCRIPT_VERSION}
     help            显示此帮助信息
 
 选项:
-    -d, --domain DOMAIN     指定域名
+    -d, --domain DOMAIN     指定域名（可多次使用）
     -w, --webroot PATH      指定网站根目录(文件验证)
     -s, --server URL        指定ACME服务器
     -e, --email EMAIL       指定邮箱地址
@@ -70,6 +70,8 @@ ${SCRIPT_NAME} v${SCRIPT_VERSION}
     $0 install                                    # 安装acme.sh
     $0 register -e user@example.com               # 注册账户
     $0 issue -d example.com -p dns_dp             # 使用DNSPod申请证书
+    $0 issue -d example.com -d "*.example.com" -p dns_dp  # 申请通配符证书
+    $0 issue -d example.com -d www.example.com -d api.example.com -p dns_dp  # 多域名证书
     $0 install-cert -d example.com -t nginx       # 安装证书到Nginx
     $0 renew -d example.com                       # 续期证书
 
@@ -304,16 +306,19 @@ setup_dns_provider() {
 
 # 申请SSL证书
 issue_certificate() {
-    local domain="$1"
+    local domains="$1"
     local provider="$2"
     local webroot="$3"
     local server="$4"
     local force="$5"
 
-    if [[ -z "$domain" ]]; then
+    if [[ -z "$domains" ]]; then
         error "域名不能为空"
         exit 1
     fi
+
+    # 获取主域名（第一个域名）用于日志显示
+    local main_domain=$(echo "$domains" | awk '{print $1}')
 
     # 如果没有提供DNS服务商参数，尝试使用配置文件中的默认值
     if [[ -z "$provider" && -n "$DEFAULT_DNS_PROVIDER" ]]; then
@@ -328,12 +333,12 @@ issue_certificate() {
         server="https://acme.trustasia.com/v2/DV90/directory"
     fi
 
-    info "开始申请SSL证书: $domain"
+    info "开始申请SSL证书: $domains"
     info "使用服务器: $server"
-    
+
     # 构建申请命令
     local cmd="$HOME/.acme.sh/acme.sh --issue"
-    
+
     if [[ -n "$provider" ]]; then
         # DNS验证
         setup_dns_provider "$provider"
@@ -345,8 +350,13 @@ issue_certificate() {
         error "必须指定DNS服务商或网站根目录"
         exit 1
     fi
-    
-    cmd="$cmd -d $domain --server $server --keylength 2048"
+
+    # 添加所有域名参数
+    for domain in $domains; do
+        cmd="$cmd -d $domain"
+    done
+
+    cmd="$cmd --server $server --keylength 2048"
     
     if [[ "$force" == "true" ]]; then
         cmd="$cmd --force"
@@ -355,9 +365,9 @@ issue_certificate() {
     info "执行命令: $cmd"
     
     if eval "$cmd"; then
-        log "SSL证书申请成功: $domain"
+        log "SSL证书申请成功: $domains"
     else
-        error "SSL证书申请失败: $domain"
+        error "SSL证书申请失败: $domains"
         exit 1
     fi
 }
@@ -381,24 +391,54 @@ install_certificate() {
     case "$server_type" in
         "nginx")
             if [[ -z "$cert_path" ]]; then
-                cert_path="/etc/nginx/ssl/${domain}.crt"
+                # 优先使用配置文件中的路径，否则使用默认路径
+                if [[ -n "$NGINX_SSL_DIR" ]]; then
+                    cert_path="${NGINX_SSL_DIR}/${domain}.crt"
+                else
+                    cert_path="/etc/nginx/ssl/${domain}.crt"
+                fi
             fi
             if [[ -z "$key_path" ]]; then
-                key_path="/etc/nginx/ssl/${domain}.key"
+                # 优先使用配置文件中的路径，否则使用默认路径
+                if [[ -n "$NGINX_SSL_DIR" ]]; then
+                    key_path="${NGINX_SSL_DIR}/${domain}.key"
+                else
+                    key_path="/etc/nginx/ssl/${domain}.key"
+                fi
             fi
             if [[ -z "$reload_cmd" ]]; then
-                reload_cmd="nginx -s reload"
+                # 优先使用配置文件中的重载命令，否则使用默认命令
+                if [[ -n "$NGINX_RELOAD_CMD" ]]; then
+                    reload_cmd="$NGINX_RELOAD_CMD"
+                else
+                    reload_cmd="nginx -s reload"
+                fi
             fi
             ;;
         "apache")
             if [[ -z "$cert_path" ]]; then
-                cert_path="/etc/apache2/ssl/${domain}.crt"
+                # 优先使用配置文件中的路径，否则使用默认路径
+                if [[ -n "$APACHE_SSL_DIR" ]]; then
+                    cert_path="${APACHE_SSL_DIR}/${domain}.crt"
+                else
+                    cert_path="/etc/apache2/ssl/${domain}.crt"
+                fi
             fi
             if [[ -z "$key_path" ]]; then
-                key_path="/etc/apache2/ssl/${domain}.key"
+                # 优先使用配置文件中的路径，否则使用默认路径
+                if [[ -n "$APACHE_SSL_DIR" ]]; then
+                    key_path="${APACHE_SSL_DIR}/${domain}.key"
+                else
+                    key_path="/etc/apache2/ssl/${domain}.key"
+                fi
             fi
             if [[ -z "$reload_cmd" ]]; then
-                reload_cmd="systemctl reload apache2"
+                # 优先使用配置文件中的重载命令，否则使用默认命令
+                if [[ -n "$APACHE_RELOAD_CMD" ]]; then
+                    reload_cmd="$APACHE_RELOAD_CMD"
+                else
+                    reload_cmd="systemctl reload apache2"
+                fi
             fi
             ;;
         *)
@@ -541,11 +581,21 @@ generate_nginx_config() {
     fi
 
     if [[ -z "$cert_path" ]]; then
-        cert_path="/etc/nginx/ssl/${domain}.crt"
+        # 优先使用配置文件中的路径，否则使用默认路径
+        if [[ -n "$NGINX_SSL_DIR" ]]; then
+            cert_path="${NGINX_SSL_DIR}/${domain}.crt"
+        else
+            cert_path="/etc/nginx/ssl/${domain}.crt"
+        fi
     fi
 
     if [[ -z "$key_path" ]]; then
-        key_path="/etc/nginx/ssl/${domain}.key"
+        # 优先使用配置文件中的路径，否则使用默认路径
+        if [[ -n "$NGINX_SSL_DIR" ]]; then
+            key_path="${NGINX_SSL_DIR}/${domain}.key"
+        else
+            key_path="/etc/nginx/ssl/${domain}.key"
+        fi
     fi
 
     cat << EOF
@@ -601,11 +651,21 @@ generate_apache_config() {
     fi
 
     if [[ -z "$cert_path" ]]; then
-        cert_path="/etc/apache2/ssl/${domain}.crt"
+        # 优先使用配置文件中的路径，否则使用默认路径
+        if [[ -n "$APACHE_SSL_DIR" ]]; then
+            cert_path="${APACHE_SSL_DIR}/${domain}.crt"
+        else
+            cert_path="/etc/apache2/ssl/${domain}.crt"
+        fi
     fi
 
     if [[ -z "$key_path" ]]; then
-        key_path="/etc/apache2/ssl/${domain}.key"
+        # 优先使用配置文件中的路径，否则使用默认路径
+        if [[ -n "$APACHE_SSL_DIR" ]]; then
+            key_path="${APACHE_SSL_DIR}/${domain}.key"
+        else
+            key_path="/etc/apache2/ssl/${domain}.key"
+        fi
     fi
 
     cat << EOF
@@ -872,7 +932,7 @@ main() {
 
     # 解析参数
     local command=""
-    local domain=""
+    local domains=""
     local webroot=""
     local server=""
     local email=""
@@ -893,7 +953,11 @@ main() {
                 shift
                 ;;
             -d|--domain)
-                domain="$2"
+                if [[ -z "$domains" ]]; then
+                    domains="$2"
+                else
+                    domains="$domains $2"
+                fi
                 shift 2
                 ;;
             -w|--webroot)
@@ -968,22 +1032,30 @@ main() {
             register_account "$email" "$server"
             ;;
         "issue")
-            issue_certificate "$domain" "$provider" "$webroot" "$server" "$force"
+            issue_certificate "$domains" "$provider" "$webroot" "$server" "$force"
             ;;
         "install-cert")
-            install_certificate "$domain" "$server_type" "$cert_path" "$key_path" "$reload_cmd"
+            # install-cert 只支持单个域名，使用第一个域名
+            local main_domain=$(echo "$domains" | awk '{print $1}')
+            install_certificate "$main_domain" "$server_type" "$cert_path" "$key_path" "$reload_cmd"
             ;;
         "renew")
-            renew_certificate "$domain" "$force"
+            # renew 只支持单个域名，使用第一个域名
+            local main_domain=$(echo "$domains" | awk '{print $1}')
+            renew_certificate "$main_domain" "$force"
             ;;
         "list")
             list_certificates
             ;;
         "remove")
-            remove_certificate "$domain"
+            # remove 只支持单个域名，使用第一个域名
+            local main_domain=$(echo "$domains" | awk '{print $1}')
+            remove_certificate "$main_domain"
             ;;
         "status")
-            check_certificate_status "$domain"
+            # status 只支持单个域名，使用第一个域名
+            local main_domain=$(echo "$domains" | awk '{print $1}')
+            check_certificate_status "$main_domain"
             ;;
         "backup")
             backup_certificates
@@ -992,16 +1064,22 @@ main() {
             restore_certificates "$backup_file"
             ;;
         "check-expiry")
-            check_expiry "$domain" "$days"
+            # check-expiry 支持单个域名或检查所有，使用第一个域名
+            local main_domain=$(echo "$domains" | awk '{print $1}')
+            check_expiry "$main_domain" "$days"
             ;;
         "auto-renew")
             auto_renew "$days"
             ;;
         "nginx-config")
-            generate_nginx_config "$domain" "$cert_path" "$key_path"
+            # nginx-config 只支持单个域名，使用第一个域名
+            local main_domain=$(echo "$domains" | awk '{print $1}')
+            generate_nginx_config "$main_domain" "$cert_path" "$key_path"
             ;;
         "apache-config")
-            generate_apache_config "$domain" "$cert_path" "$key_path"
+            # apache-config 只支持单个域名，使用第一个域名
+            local main_domain=$(echo "$domains" | awk '{print $1}')
+            generate_apache_config "$main_domain" "$cert_path" "$key_path"
             ;;
         "config")
             create_config
