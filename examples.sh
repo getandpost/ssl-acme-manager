@@ -358,24 +358,52 @@ example_complete_workflow() {
     echo
 }
 
+# 诊断 acme.sh 安装状态示例
+example_diagnose() {
+    echo -e "${GREEN}诊断 acme.sh 安装状态示例${NC}"
+    echo "命令: $SCRIPT_PATH diagnose"
+    echo "说明: 诊断 acme.sh 的安装状态和路径问题"
+    echo
+    echo "诊断内容:"
+    echo "- 检查 acme.sh 文件是否存在"
+    echo "- 检查文件权限和可执行性"
+    echo "- 检查环境变量和 PATH 设置"
+    echo "- 检查别名配置"
+    echo "- 显示详细的系统信息"
+    echo
+    echo "适用场景:"
+    echo "- acme.sh 安装后无法找到文件"
+    echo "- 出现 'No such file or directory' 错误"
+    echo "- 在 Alibaba Cloud Linux 等特殊环境中"
+    echo
+}
+
 # 故障排除示例
 example_troubleshooting() {
     echo -e "${GREEN}故障排除示例${NC}"
     echo
-    echo "1. 查看详细日志:"
+    echo "1. acme.sh 未找到:"
+    echo "   问题: -bash: /root/.acme.sh/acme.sh: No such file or directory"
+    echo "   诊断: $SCRIPT_PATH diagnose"
+    echo "   解决: $SCRIPT_PATH install -e your@email.com"
+    echo
+    echo "2. 查看详细日志:"
     echo "   tail -f /var/log/ssl_acme.log"
     echo
-    echo "2. 查看 acme.sh 日志:"
+    echo "3. 查看 acme.sh 日志:"
     echo "   tail -f ~/.acme.sh/acme.sh.log"
     echo
-    echo "3. 测试 DNS 配置:"
+    echo "4. 测试 DNS 配置:"
     echo "   dig TXT _acme-challenge.example.com"
     echo
-    echo "4. 测试证书:"
+    echo "5. 测试证书:"
     echo "   openssl s_client -connect example.com:443 -servername example.com"
     echo
-    echo "5. 检查证书有效期:"
+    echo "6. 检查证书有效期:"
     echo "   $SCRIPT_PATH status -d example.com"
+    echo
+    echo "7. Alibaba Cloud Linux 问题:"
+    echo "   参考: TROUBLESHOOTING.md 文件"
     echo
 }
 
@@ -407,10 +435,11 @@ show_menu() {
     echo "22) 使用配置向导（推荐）"
     echo "23) 手动配置文件使用"
     echo "24) 完整部署流程"
-    echo "25) 故障排除"
+    echo "25) 诊断 acme.sh 安装状态"
+    echo "26) 故障排除"
     echo " 0) 显示所有示例"
     echo
-    read -p "请输入选项 (0-25): " choice
+    read -p "请输入选项 (0-26): " choice
     
     case $choice in
         1) example_install ;;
@@ -437,7 +466,8 @@ show_menu() {
         22) example_config_wizard ;;
         23) example_config_file ;;
         24) example_complete_workflow ;;
-        25) example_troubleshooting ;;
+        25) example_diagnose ;;
+        26) example_troubleshooting ;;
         0) show_all_examples ;;
         *) echo -e "${RED}无效选项${NC}" ;;
     esac
@@ -469,6 +499,7 @@ show_all_examples() {
     example_config_wizard
     example_config_file
     example_complete_workflow
+    example_diagnose
     example_troubleshooting
 }
 

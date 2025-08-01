@@ -53,6 +53,7 @@ ${SCRIPT_NAME} v${SCRIPT_VERSION}
     remove          删除证书
     config          配置脚本参数
     status          查看证书状态
+    diagnose        诊断acme.sh安装状态
     help            显示此帮助信息
 
 选项:
@@ -128,6 +129,110 @@ check_system() {
     log "系统环境检查完成"
 }
 
+# 获取 acme.sh 可执行文件路径
+get_acme_path() {
+    # 尝试多种方式找到 acme.sh
+    local acme_paths=(
+        "$HOME/.acme.sh/acme.sh"
+        "/root/.acme.sh/acme.sh"
+        "/usr/local/bin/acme.sh"
+        "/usr/bin/acme.sh"
+        "$(which acme.sh 2>/dev/null)"
+        "$(command -v acme.sh 2>/dev/null)"
+        "$(find /root -name "acme.sh" -type f -executable 2>/dev/null | head -1)"
+        "$(find /home -name "acme.sh" -type f -executable 2>/dev/null | head -1)"
+        "$(find /usr/local -name "acme.sh" -type f -executable 2>/dev/null | head -1)"
+    )
+
+    for path in "${acme_paths[@]}"; do
+        if [[ -n "$path" && -x "$path" ]]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    # 如果都找不到，返回默认路径
+    echo "$HOME/.acme.sh/acme.sh"
+    return 1
+}
+
+# 诊断 acme.sh 安装状态
+diagnose_acme_installation() {
+    echo "=== acme.sh 安装诊断 ==="
+    echo "当前用户: $(whoami)"
+    echo "HOME 目录: $HOME"
+    echo "当前工作目录: $(pwd)"
+    echo
+
+    echo "检查可能的 acme.sh 路径:"
+    local paths=(
+        "$HOME/.acme.sh/acme.sh"
+        "/root/.acme.sh/acme.sh"
+        "$(which acme.sh 2>/dev/null || echo '未找到')"
+        "$(command -v acme.sh 2>/dev/null || echo '未找到')"
+    )
+
+    for path in "${paths[@]}"; do
+        if [[ -n "$path" && "$path" != "未找到" ]]; then
+            if [[ -f "$path" ]]; then
+                if [[ -x "$path" ]]; then
+                    echo "✅ $path (存在且可执行)"
+                else
+                    echo "⚠️  $path (存在但不可执行)"
+                    ls -la "$path"
+                fi
+            else
+                echo "❌ $path (不存在)"
+            fi
+        else
+            echo "❌ PATH 中未找到 acme.sh"
+        fi
+    done
+
+    echo
+    echo "检查 .acme.sh 目录:"
+    if [[ -d "$HOME/.acme.sh" ]]; then
+        echo "✅ $HOME/.acme.sh 目录存在"
+        echo "目录内容:"
+        ls -la "$HOME/.acme.sh/" | head -10
+
+        if [[ -f "$HOME/.acme.sh/acme.sh" ]]; then
+            echo "文件权限:"
+            ls -la "$HOME/.acme.sh/acme.sh"
+            echo "文件类型:"
+            file "$HOME/.acme.sh/acme.sh"
+        fi
+    else
+        echo "❌ $HOME/.acme.sh 目录不存在"
+    fi
+
+    echo
+    echo "检查环境变量:"
+    echo "PATH: $PATH"
+    if [[ -f "$HOME/.bashrc" ]]; then
+        echo "检查 .bashrc 中的 acme.sh 相关配置:"
+        grep -n "acme" "$HOME/.bashrc" || echo "未找到 acme.sh 相关配置"
+    fi
+
+    echo "=== 诊断完成 ==="
+}
+
+# 检查 acme.sh 是否可用
+check_acme_available() {
+    local acme_path=$(get_acme_path)
+
+    if [[ ! -x "$acme_path" ]]; then
+        error "acme.sh 未找到或不可执行: $acme_path"
+        error "请先运行 './ssl_acme.sh install' 安装 acme.sh"
+        echo
+        warn "运行诊断以获取更多信息:"
+        diagnose_acme_installation
+        return 1
+    fi
+
+    return 0
+}
+
 # 安装acme.sh
 install_acme() {
     local email="$1"
@@ -151,7 +256,8 @@ install_acme() {
     info "开始安装acme.sh..."
     
     # 检查是否已安装
-    if [[ -f "$HOME/.acme.sh/acme.sh" ]]; then
+    local acme_path=$(get_acme_path)
+    if [[ -x "$acme_path" ]]; then
         warn "acme.sh已经安装，跳过安装步骤"
         return 0
     fi
@@ -159,16 +265,72 @@ install_acme() {
     # 在线安装
     if curl -s https://get.acme.sh | sh -s email="$email"; then
         log "acme.sh安装成功"
-        
+
+        # 等待安装完成
+        sleep 2
+
+        # 检查安装结果
+        local acme_path="$HOME/.acme.sh/acme.sh"
+        if [[ ! -f "$acme_path" ]]; then
+            warn "标准路径未找到 acme.sh，尝试其他可能的位置..."
+
+            # 检查其他可能的安装位置
+            local alt_paths=(
+                "/root/.acme.sh/acme.sh"
+                "/usr/local/bin/acme.sh"
+                "$(find /root -name "acme.sh" -type f 2>/dev/null | head -1)"
+                "$(find /home -name "acme.sh" -type f 2>/dev/null | head -1)"
+            )
+
+            for alt_path in "${alt_paths[@]}"; do
+                if [[ -n "$alt_path" && -f "$alt_path" ]]; then
+                    log "找到 acme.sh: $alt_path"
+                    acme_path="$alt_path"
+                    break
+                fi
+            done
+        fi
+
+        # 确保文件可执行
+        if [[ -f "$acme_path" ]]; then
+            chmod +x "$acme_path"
+            log "设置执行权限: $acme_path"
+        fi
+
         # 重新加载环境
         source "$HOME/.bashrc" 2>/dev/null || true
-        
+        source "$HOME/.profile" 2>/dev/null || true
+
         # 创建别名
         if ! grep -q "alias acme.sh" "$HOME/.bashrc"; then
-            echo "alias acme.sh='$HOME/.acme.sh/acme.sh'" >> "$HOME/.bashrc"
+            echo "alias acme.sh='$acme_path'" >> "$HOME/.bashrc"
+            log "添加别名到 .bashrc"
         fi
-        
+
+        # 对于 Alibaba Cloud Linux，可能需要额外的环境设置
+        if grep -q "Alibaba Cloud Linux" /etc/os-release 2>/dev/null; then
+            warn "检测到 Alibaba Cloud Linux，应用特殊配置..."
+
+            # 确保 PATH 包含 acme.sh 目录
+            if ! echo "$PATH" | grep -q "$HOME/.acme.sh"; then
+                echo "export PATH=\"\$HOME/.acme.sh:\$PATH\"" >> "$HOME/.bashrc"
+                log "添加 acme.sh 目录到 PATH"
+            fi
+
+            # 创建系统级符号链接
+            if [[ -f "$acme_path" && ! -L "/usr/local/bin/acme.sh" ]]; then
+                ln -sf "$acme_path" "/usr/local/bin/acme.sh" 2>/dev/null || true
+                log "创建系统级符号链接"
+            fi
+        fi
+
         log "请重新打开终端或执行 'source ~/.bashrc' 使配置生效"
+
+        # 验证安装
+        echo
+        info "验证安装结果..."
+        diagnose_acme_installation
+
     else
         error "acme.sh安装失败"
         exit 1
@@ -197,9 +359,15 @@ register_account() {
 
     info "注册ACME账户..."
     info "使用服务器: $server"
-    
-    # 构建注册命令
-    local cmd="$HOME/.acme.sh/acme.sh --register-account --server $server"
+
+    # 检查 acme.sh 是否可用
+    if ! check_acme_available; then
+        exit 1
+    fi
+
+    # 获取 acme.sh 路径并构建注册命令
+    local acme_path=$(get_acme_path)
+    local cmd="$acme_path --register-account --server $server"
     
     if [[ -n "$eab_kid" && -n "$eab_hmac" ]]; then
         cmd="$cmd --eab-kid $eab_kid --eab-hmac-key $eab_hmac"
@@ -336,8 +504,14 @@ issue_certificate() {
     info "开始申请SSL证书: $domains"
     info "使用服务器: $server"
 
-    # 构建申请命令
-    local cmd="$HOME/.acme.sh/acme.sh --issue"
+    # 检查 acme.sh 是否可用
+    if ! check_acme_available; then
+        exit 1
+    fi
+
+    # 获取 acme.sh 路径并构建申请命令
+    local acme_path=$(get_acme_path)
+    local cmd="$acme_path --issue"
 
     if [[ -n "$provider" ]]; then
         # DNS验证
@@ -452,9 +626,15 @@ install_certificate() {
     # 创建证书目录
     mkdir -p "$(dirname "$cert_path")"
     mkdir -p "$(dirname "$key_path")"
-    
-    # 构建安装命令
-    local cmd="$HOME/.acme.sh/acme.sh --installcert -d $domain"
+
+    # 检查 acme.sh 是否可用
+    if ! check_acme_available; then
+        exit 1
+    fi
+
+    # 获取 acme.sh 路径并构建安装命令
+    local acme_path=$(get_acme_path)
+    local cmd="$acme_path --installcert -d $domain"
     cmd="$cmd --key-file $key_path --fullchain-file $cert_path"
     
     if [[ -n "$reload_cmd" ]]; then
@@ -485,7 +665,14 @@ renew_certificate() {
 
     info "开始续期SSL证书: $domain"
 
-    local cmd="$HOME/.acme.sh/acme.sh --renew -d $domain"
+    # 检查 acme.sh 是否可用
+    if ! check_acme_available; then
+        exit 1
+    fi
+
+    # 获取 acme.sh 路径并构建续期命令
+    local acme_path=$(get_acme_path)
+    local cmd="$acme_path --renew -d $domain"
 
     if [[ "$force" == "true" ]]; then
         cmd="$cmd --force"
@@ -503,7 +690,14 @@ renew_certificate() {
 list_certificates() {
     info "列出所有SSL证书..."
 
-    if $HOME/.acme.sh/acme.sh --list; then
+    # 检查 acme.sh 是否可用
+    if ! check_acme_available; then
+        exit 1
+    fi
+
+    # 获取 acme.sh 路径并执行列表命令
+    local acme_path=$(get_acme_path)
+    if "$acme_path" --list; then
         log "证书列表获取成功"
     else
         error "证书列表获取失败"
@@ -530,7 +724,14 @@ remove_certificate() {
 
     info "开始删除SSL证书: $domain"
 
-    if $HOME/.acme.sh/acme.sh --remove -d "$domain"; then
+    # 检查 acme.sh 是否可用
+    if ! check_acme_available; then
+        exit 1
+    fi
+
+    # 获取 acme.sh 路径并执行删除命令
+    local acme_path=$(get_acme_path)
+    if "$acme_path" --remove -d "$domain"; then
         log "SSL证书删除成功: $domain"
     else
         error "SSL证书删除失败: $domain"
@@ -948,7 +1149,7 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case $1 in
-            install|register|issue|install-cert|renew|list|remove|config|status|help|backup|restore|check-expiry|auto-renew|nginx-config|apache-config)
+            install|register|issue|install-cert|renew|list|remove|config|status|help|backup|restore|check-expiry|auto-renew|nginx-config|apache-config|diagnose)
                 command="$1"
                 shift
                 ;;
@@ -1083,6 +1284,9 @@ main() {
             ;;
         "config")
             create_config
+            ;;
+        "diagnose")
+            diagnose_acme_installation
             ;;
         "help"|"")
             show_help
